@@ -1,0 +1,138 @@
+---
+title: "HW2"
+format: html
+---
+
+The following analysis and visualization aims to answer the question: *How do FEMA National Risk Index scores for counties in California compare to those in other states?* It is completed as part of an assignment for EDS240: Data Visualization & Communication.
+
+**Data:**
+
+
+
+```{r}
+#| message: false
+#| warning: false
+# Load necessary libraries
+library(tidyverse)
+library(here)
+library(janitor)
+library(ggplot2)
+library(ggridges)
+library(gghighlight)
+```
+
+```{r}
+#| message: false
+#| warning: false
+# Read in data
+nri_raw <- read_csv(here("data/National_Risk_Index_Counties_807384124455672111.csv")) %>% 
+  clean_names()
+
+# Clean data
+nri <- nri %>% 
+  
+  # Keep only 50 US states (no territories)
+  filter(state_name %in% state.name) %>% 
+  
+  # Find mean NRI score by state
+  group_by(state_name) %>% 
+  mutate(state_mean_nri = mean(national_risk_index_score_composite)) %>% 
+  ungroup() %>% 
+  
+  # Arrange states by mean state NRI
+  mutate(state_name = fct_reorder(.f = state_name, # which group you want to reorder
+                                      .x = state_mean_nri)) %>%  # order by the mean column we just created
+  
+  # Keep only the columns we need
+  select(state_name, state_name_abbreviation, state_mean_nri, county_name, county_type, national_risk_index_score_composite, national_risk_index_state_percentile_composite) 
+  
+  
+
+```
+
+```{r}
+nri %>% 
+  group_by(state_name) %>% 
+  summarize(mean_state = mean(national_risk_index_score_composite)) %>% 
+  ggplot(aes(y = reorder(state_name, mean_state), x = mean_state)) +
+  geom_col()
+```
+```{r}
+nri %>% 
+  filter(state_name_abbreviation == "CA") %>% 
+  group_by(county_name) %>% 
+  ggplot(aes(y = county_name, x = national_risk_index_score_composite)) +
+  geom_col()
+```
+
+```{r}
+nri %>% 
+  group_by(state_name) %>% 
+  slice_max(state_mean_nri, n = 10) %>% 
+  ungroup() %>% 
+  ggplot(aes(x = national_risk_index_score_composite, 
+             y = state_name)) +
+  geom_density_ridges() 
+
+  
+```
+```{r}
+nri_top10 <- nri %>% 
+  slice_max(by = state_name, state_mean_nri, n = 10)
+
+ggplot(data = nri_top10, aes(x = national_risk_index_score_composite, y = state_name)) +
+  geom_density_ridges()
+```
+```{r}
+states_top10 <- nri %>% 
+  group_by(state_name) %>% 
+  summarize(state_mean_nri = mean(national_risk_index_score_composite)) %>% 
+  slice_max(state_mean_nri, n = 10) %>% 
+  pull(state_name)
+```
+
+```{r}
+nri %>% 
+  filter(state_name %in% states_top10) %>% 
+  ggplot(aes(x = national_risk_index_score_composite, y = state_name, fill = state_name)) +
+  geom_density_ridges() +
+  gghighlight(state_name == "California") +
+  xlim(0, 100)
+```
+```{r}
+nri %>% 
+  filter(state_name == "California") %>% 
+  ggplot(aes(x = national_risk_index_score_composite)) +
+  geom_density()
+```
+```{r}
+nri %>% 
+  filter(state_name %in% states_top10) %>% 
+  ggplot(aes(x = national_risk_index_score_composite, y = state_name, fill = state_name)) +
+  geom_boxplot() +
+  gghighlight(state_name == "California") +
+  xlim(0, 100)
+```
+
+```{r}
+states_top10_med <- nri %>% 
+  group_by(state_name) %>% 
+  summarize(state_median_nri = median(national_risk_index_score_composite)) %>% 
+  slice_max(state_median_nri, n = 10) %>% 
+  pull(state_name)
+```
+
+```{r}
+nri %>% 
+  filter(state_name %in% states_top10_med) %>% 
+  group_by(state_name) %>% 
+  mutate(state_nri_med = median(national_risk_index_score_composite),
+         state_name = fct_reorder(.f = state_name, # which group you want to reorder
+                                      .x = state_nri_med)) %>% 
+  ungroup() %>% 
+  ggplot(aes(x = national_risk_index_score_composite, y = state_name, fill = state_name)) +
+  geom_boxplot() +
+  gghighlight(state_name == "California") +
+  xlim(0, 100)
+```
+
