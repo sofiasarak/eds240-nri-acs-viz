@@ -46,7 +46,7 @@ nri <- nri_raw %>%
                                       .x = state_mean_nri),  # order by the mean column we just created
          
   # Create new column with values by median order
-           rank = dense_rank(desc(state_median_nri))) %>% 
+           rank = dense_rank(desc(state_mean_nri))) %>% 
   
   # Add column for whether state is California
   mutate(is_ca = case_when(
@@ -77,36 +77,77 @@ mean_plot <- ggplot(data = nri, aes(x = state_mean_nri, y = reorder(state_name, 
   geom_linerange(aes(xmin = 0, xmax = state_mean_nri)) + 
   labs(x = " ",
        y = " ", 
-       title = "States by Mean") +
+       title = " ") +
   theme_minimal() +
   scale_color_manual(values = c(other_states, ca_red)) + 
   theme(legend.position = "none",
         axis.text.y = element_text(size = 7),
-        plot.title = element_text(face = "bold", hjust = 0.5, size = 11)) +
-  scale_y_discrete(position = "right")
+        plot.title = element_text(face = "bold", hjust = 0.5, size = 11)) 
 ```
 
 ```{r}
-median_plot <- ggplot(nri_top5, aes(x = national_risk_index_score_composite, fill = state_name)) +
-  geom_histogram() +
+top5_boxplot <- ggplot(nri_top5, aes(x = national_risk_index_score_composite, fill = state_name)) +
+  geom_boxplot() +
   labs(x = " ",
-       y = "Number of Counties",
-       title = "Top 5 Medians") +
+       y = " ",
+       title = "Distributions of States with Highest Means") +
   facet_wrap(~state_name, 
              nrow = 5) +
-  scale_fill_manual(values = c(ca_red, other_states, other_states, other_states, other_states)) + 
+  scale_fill_manual(values = c(other_states, other_states, ca_red, other_states, other_states)) + 
   theme_minimal() +
   theme(legend.position = "none",
         plot.title = element_text(face = "bold", hjust = 0.5, size = 11),
-        strip.text.x = element_text(angle = 0, hjust = 1,
-                                    size = 10, color = "black")) 
+        strip.text.x = element_text(angle = 0, hjust = 0,
+                                    size = 10, color = "black"),
+        axis.text.y = element_blank()) +
+  ylim(-.75, .75)
 ```
 
 ```{r}
-median_plot + mean_plot +
+mean_plot + top5_boxplot +
   plot_annotation(
   caption = "National Risk Index",
-  theme = theme(plot.caption = element_text(face = "bold", hjust = 0.5, size = 12)))
+  theme = theme(plot.caption = element_text(hjust = 0.5, size = 12)))
 
 ```
+```{r}
+top5_boxplot_2 <- ggplot(nri_top5, aes(x = national_risk_index_score_composite, fill = state_name)) +
+  geom_boxplot() +
+  labs(x = " ",
+       y = " ",
+       title = " ") +
+  facet_wrap(~state_name, 
+             ncol = 5) +
+  scale_fill_manual(values = c(other_states, other_states, ca_red, other_states, other_states)) + 
+  theme_minimal() +
+  theme(legend.position = "none",
+        plot.title = element_text(face = "bold", hjust = 0.5, size = 11),
+        strip.text.x = element_text(angle = 0, hjust = 0,
+                                    size = 5, color = "black"),
+        axis.text.y = element_blank()) +
+  ylim(-.75, .75) +
+  coord_flip()
+```
 
+
+
+```{r}
+mean_plot + inset_element(
+  top5_boxplot_2,
+  left = 0.5,   # adjust this value to control horizontal position
+  bottom = 0.025,
+  right = 1,
+  top = 0.7    # adjust this value to control height
+)
+```
+## Responses
+
+**1. What are your variables of interest and what kinds of data (e.g. numeric, categorical, ordered, etc.) are they (a bullet point list is fine)?**
+
+**2. How did you decide which type of graphic form was best suited for answering the question? What alternative graphic forms could you have used instead? Why did you settle on this particular graphic form?**
+
+**3. Summarize your main finding in no more than two sentences.**
+
+**4. What modifications did you make to this visualization to make it more easily readable?**
+
+**5. Is there anything you wanted to implement, but didn’t know how? If so, please describe.**
