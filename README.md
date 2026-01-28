@@ -6,7 +6,7 @@ As of January 28, 2026, only [Homework 2](https://eds-240-data-viz.github.io/cou
 
 ## Data Access
 
-**NRI:** FEMA ([Federal Emergency Management Agency](https://www.fema.gov/about) has maintained National Risk Index (NRI) data since 2021. The index “provides information for communities most at risk to 18 different natural hazards. It offers a baseline risk measurement for expected annual loss, social vulnerability and community resilience at the Census tract or county level. The data helps to validate, measure and better understand your community’s natural hazard risk.” Risk is defined as the potential for negative impacts resulting from natural hazards. This analysis uses NRI composite scores, which adds together the risk from all 18 hazard types. 
+**NRI:** FEMA ([Federal Emergency Management Agency](https://www.fema.gov/about)) has maintained National Risk Index (NRI) data since 2021. The index “provides information for communities most at risk to 18 different natural hazards. It offers a baseline risk measurement for expected annual loss, social vulnerability and community resilience at the Census tract or county level. The data helps to validate, measure and better understand your community’s natural hazard risk.” Risk is defined as the potential for negative impacts resulting from natural hazards. This analysis uses NRI composite scores, which adds together the risk from all 18 hazard types. 
 
 Data can be downloaded from FEMA's [Resilience Analysis and Planning Tool](https://experience.arcgis.com/experience/0a317e8998534c30a9b2d3861c814d42/).
 
