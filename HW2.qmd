@@ -1,15 +1,17 @@
 ---
 title: "EDS240 Homework 2: FEMA NRI Visualization"
-author: "Sofia Sarak
-
-format: html
+author: "Sofia Sarak"
+date: "2026-01-28"
+format: pdf
 ---
 
 The following analysis and visualization aims to answer the question: *How do FEMA National Risk Index scores for counties in California compare to those in other states?* It is completed as part of an assignment for EDS240: Data Visualization & Communication.
 
 ## Data and Wrangling
 
-FEMA ([Federal Emergency Management Agency](https://www.fema.gov/about)) has maintained National Risk Index (NRI) data since 2021. The index “provides information for communities most at risk to 18 different natural hazards. It offers a baseline risk measurement for expected annual loss, social vulnerability and community resilience at the Census tract or county level. The data helps to validate, measure and better understand your community’s natural hazard risk.” Risk is defined as the potential for negative impacts resulting from natural hazards. This analysis uses NRI composite scores, which adds together the risk from all 18 hazard types.
+FEMA ([Federal Emergency Management Agency](https://www.fema.gov/about)) has maintained National Risk Index (NRI) data since 2021. The index “provides information for communities most at risk to 18 different natural hazards", providing measurement and validation of a community’s natural hazard risk. Risk is defined as the potential for negative impacts resulting from natural hazards. 
+
+This analysis uses NRI composite scores, which adds together the risk from all 18 hazard types.
 
 ```{r}
 #| message: false
@@ -19,8 +21,6 @@ library(tidyverse)
 library(here)
 library(janitor)
 library(ggplot2)
-library(ggridges)
-library(gghighlight)
 library(patchwork)
 ```
 
@@ -44,7 +44,7 @@ nri <- nri_raw %>%
   
   # Arrange states by median state NRI
   mutate(state_name = fct_reorder(.f = state_name, # which group you want to reorder
-                                      .x = state_median_nri),  # order by the median column we just created
+                                      .x = state_median_nri),  # order by the median column
          
   # Create new column with values by median order
            rank = dense_rank(desc(state_median_nri))) %>% 
@@ -56,7 +56,7 @@ nri <- nri_raw %>%
   
   # Keep only necessary columns
   select(state_name, state_name_abbreviation, state_median_nri,
-         national_risk_index_score_composite, national_risk_index_state_percentile_composite, 
+         national_risk_index_score_composite, 
          is_ca, rank) 
 
   
@@ -68,7 +68,7 @@ nri_top10 <- nri %>%
 
 ## Creating Visuals
 
-My visualization will have two components: a lollipop chart comparing median NRI of all 50 states and also boxplots of the 5 states with the highest median NRIs.
+My visualization has two components: 1) a boxplot of NRI distribution of the states with the 10 highest median NRIs, and 2) a lollipop chart comparing median NRI of all 50 states.
 
 ```{r}
 # Create and save theme colors
@@ -81,26 +81,31 @@ Lollipop chart using median NRI:
 ```{r}
 lollipop_medians <- 
   
-  # Plot median state NRI, ordering by median and color by the variable `is_ca`, to highlight California
+  # Plot median state NRI, ordering by median
+  # Color by the variable `is_ca`, to highlight California
   ggplot(data = nri, aes(x = state_median_nri, y = reorder(state_name, state_median_nri), color = factor(is_ca))) +
   
   # Add lollipop chart components
   geom_point() + 
   geom_linerange(aes(xmin = 0, xmax = state_median_nri)) + 
   
-  # Remove axis labels, they will be redundant in combined plot
-  labs(x = "National Risk Index",
+  # Add axis labels where necessary
+  labs(x = "NRI Score",
        y = " ",
-       title = "Median NRI of US States") +
+       title = "Median NRI") +
   
   # Set/adjust theme and colors
   theme_minimal() +
   scale_color_manual(values = c(other_states, ca_red)) + 
   theme(legend.position = "none",
-        axis.title.x = element_text(size = 9),
-        axis.text.x = element_text(size = 5),
-        plot.title = element_text(face = "bold", hjust = 0.5, size = 11)) 
+        axis.title.x = element_text(size = 9, face = "bold"),
+        plot.title = element_text(face = "bold", hjust = 0.5, size = 11),
+        panel.grid.major.y = element_blank(),
+        panel.grid.minor.y = element_blank()) +
+  xlim(0, 100)
 ```
+
+Boxplots of 10 states with the highest median NRI:
 
 ```{r}
 top10_boxplot <- 
@@ -110,9 +115,9 @@ top10_boxplot <-
   
   # Add boxplot geom and labels (keeping redundant labels blank)
   geom_boxplot() +
-  labs(x = "National Risk Index",
+  labs(x = "NRI Score",
        y = " ",
-       title = "Distributions of Top 10, by Median") +
+       title = "Top 10 States by Median") +
   
   # Add custom color scale to highlight California
   scale_fill_manual(values = c(ca_red, other_states, other_states, 
@@ -120,23 +125,34 @@ top10_boxplot <-
                               other_states, other_states, other_states, other_states)) + 
   theme_minimal() +
   theme(legend.position = "none",
-        plot.title = element_text(face = "bold", hjust = 0.5, size = 11),
-        axis.title.x = element_text(size = 9)) +
+        plot.title = element_text(face = "bold", hjust = 0.4, size = 11),
+        axis.title.x = element_text(size = 9, face = "bold"),
+        axis.text.y = element_text(hjust = 0)) +
   
   # Switch y axis labels to the right
   scale_y_discrete(position = "right")
-  
-  top10_boxplot
 ```
+**Final Plot**
+
+Combining boxplot and lollipop chart into one figure, using {patchwork}:
 
 ```{r}
+#| fig-alt: "On the left, a boxplot of NRI distributions of 10 U.S. states with the highest NRI medians; California, Deleware, and New Jersey are the top 3, and generally, distributions decrease from highest to lowest median NRI. On the right, a horizontal lollipop chart of median NRIs of all 50 states, with median decreasing gradually. California has the highest median of about 95, and North Dakota with the lowest of 13."
+#| fig-asp: 1.3
+
+# Combine plots
 top10_boxplot + lollipop_medians +
-  plot_layout(axis_titles = "collect_y") +
+
+  # Add plot title, subtitle, and data info in caption
   plot_annotation(
-  title = "Comparison of NRI County Distribution and Median, by US State",
-  caption = "Data info",
-  theme = theme(plot.caption = element_text(hjust = 0, size = 5),
-                plot.title = element_text(face = "bold")))
+  title = "Comparison of County National Risk Index (NRI) by US State",
+  subtitle = "Counties in <span style='color:#B72037;'>California</span> have the highest median NRI overall",
+  caption = "Data: FEMA National Risk Index (2025 Release)",
+
+  # Make alternations to text size and positioning, etc
+  theme = theme(plot.caption = element_text(hjust = 1, size = 7),
+                plot.title = element_text(face = "bold"),
+                plot.subtitle = ggtext::element_markdown()))
 
 ```
 
@@ -145,17 +161,20 @@ top10_boxplot + lollipop_medians +
 **1. What are your variables of interest and what kinds of data (e.g. numeric, categorical, ordered, etc.) are they (a bullet point list is fine)?**
 
 My variables of interest are:
+
 - state name (categorical)
+
 - NRI (the composite National Risk Index score, which is numeric), by county
-- median NRI, by state, which I calculated in my wrangling step
+
+- median NRI by state, which I calculated in my wrangling step
 
 **2. How did you decide which type of graphic form was best suited for answering the question? What alternative graphic forms could you have used instead? Why did you settle on this particular graphic form?**
 
 Because the question specified *counties* in California, I figured that a distribution of NRI scores was the most appropriate, as it consolidated but retained county-level data, by state. From there, I considered histograms, density plots (using `geom_density_ridges()`), and boxplots, but I found that plotting all 50 states created a visual that I personally thought was too busy. Distributions of NRI scores for all 50 states is an overwhelming amount of information, regardless of which plot type it is presented in. Therefore, I decided to pivot.
 
-I felt that comparing California to 10 states was an adequate number -- it was large enough to see the gradual decrease of medians, but small enough to where it wasn't overwhelming. A big factor using the top 10 states by median was also that California had the highest median score, ensuring its spot on the plot. However, since the assignment asked for a comparison relative to *all* 50 states, I knew I had to incorporate them somehow. I decided to create a lollipop chart to display state medians, because I feel like it is less overwhelming than both boxplots and a bar chart. It also showed the decrease in medians nicely, with California still at the top.
+I felt that comparing California to 10 states was an adequate number -- it was large enough to see the gradual decrease of medians, but small enough to where it wasn't too much. A big factor of using the top 10 states by median was that California had the highest median score, ensuring its spot on the plot. However, since the assignment asked for a comparison relative to *all* 50 states, I knew I had to incorporate them somehow. I decided to create a lollipop chart to display state medians, because I felt it was less overwhelming than both boxplots and a bar chart. It also showed the decrease in medians nicely, with California still at the top.
 
-I also opted to use median as my statistic in the lollipop chart because it is represented in the boxplots, as well. It felt important to have that sort of consistency in my two plots.
+I also opted to use median as my statistic in the lollipop chart because it is represented in the boxplots, as well, and I wanted to maintain consistency.
 
 **3. Summarize your main finding in no more than two sentences.**
 
@@ -163,17 +182,10 @@ California has the highest median NRI out of all 50 US states, with most countie
 
 **4. What modifications did you make to this visualization to make it more easily readable?**
 
-I colored California with its own red color using a Boolean column in the lollipop chart. With the boxplots, I cheated a little and hand-filled each one, since I knew which one exactly was California.
+I colored California with its own red color using a Boolean column in the lollipop chart. With the boxplots, I cheated a little and manually assigned each one, since I knew that California was first. I also made the word California red in the subtitle.
 
-I also switched the axes of my boxplot to be on the right of it (instead of the default left), so my audience can more easily see axis labels for both plots at the same time.
+I also switched the axis labels of my boxplot to be on the right (instead of the default left), so my audience can more easily see axis labels for both plots at the same time.
 
 **5. Is there anything you wanted to implement, but didn’t know how? If so, please describe.**
 
 I was hoping to inset the boxplot within the empty space in the lower right corner of the lollipop chart. I made a few attempts using the patchwork package, but wasn't able to figure out the proper dimensions and coordinates to make it look right. For a lot of combinations, even if the plot was positioned correctly, the boxplots themselves weren't appearing because the plot panel was too small for the data to appear. It also would have been difficult and/or time-consuming to adjust axis text and title to fit properly within the smaller box, but still be readable.
-
-
-todo:
-- fix axis text in lollipop chart
-- add data info
-- final look through from assignment description checklist
-- aspect-ratio in code chunk yaml
