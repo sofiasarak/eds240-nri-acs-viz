@@ -16,7 +16,7 @@ Data information sourced from the [Homework 2 assignment](https://eds-240-data-v
 
 ## Repository Structure (subject to change)
 ```
-
+├── HW2.qmd
 ```
 ## Course Information
 
