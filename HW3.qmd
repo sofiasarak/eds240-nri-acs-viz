@@ -1,0 +1,83 @@
+---
+title: "Homework 3: Visualizing FEMA NRI x ACS Data"
+author: "Sofia Sarak"
+format: html
+editor: visual
+---
+
+The following document contains code to answer the question: *How does climate hazard risk exposure vary across racial / ethnic groups in California?* It uses data from [FEMA's National Risk Index (NRI)](https://www.fema.gov/flood-maps/products-tools/national-risk-index) and the [American Census Survey (ACS)](https://www.census.gov/programs-surveys/acs/about.html).
+
+```{r}
+#| message: false
+# Load necessary packages
+library(here)
+library(tidyverse)
+library(janitor)
+```
+
+Access ACS data:
+```{r}
+#| message: false
+# Access ACS data
+#....Step 1a: see all available ACS variables + descriptions.....
+# acs_vars <- tidycensus::load_variables(year = 2023,
+#                                        dataset = "acs1")
+# 
+# #..............Step 1b: import race & ethnicity data.............
+# race_ethnicity <- tidycensus::get_acs(
+#   geography = "county",
+#   survey = "acs1",
+#   # NOTE: you may not end up using all these variables
+#   variables = c("B01003_001", "B02001_002", "B02001_003", 
+#                 "B02001_004", "B02001_005", "B02001_006",
+#                 "B02001_007", "B02001_008", "B03002_012",
+#                 "B03002_002"),
+#   state = "CA", 
+#   year = 2023) |>
+#   # join variable descriptions (so we know what's what!)
+#   dplyr::left_join(acs_vars, by = dplyr::join_by(variable == name)) 
+# 
+# #.................Step 2: write ACS data to file.................
+# readr::write_csv(race_ethnicity, here("data", "ACS-1yr-2023-county-race-ethnicity.csv"))
+
+#..................Step 3: read in your CSV file.................
+race_ethnicity <- read_csv(here("data", "ACS-1yr-2023-county-race-ethnicity.csv"))
+
+```
+
+Access NRI data:
+```{r}
+#| warning: false
+# Load in NRI data
+nri_raw <- read_csv(here("data/National_Risk_Index_Counties_807384124455672111.csv")) %>% 
+  clean_names()
+```
+
+### Data Wrangling
+```{r}
+# Select only data from California
+nri_ca <- nri_raw %>% 
+  filter(state_name == "California")
+```
+
+NRI and ACS data have different methods of storing county information, so we have to account for that.
+```{r}
+# Change county column in ACS to match that of NRI
+race_ethnicity_clean <- race_ethnicity %>% 
+  
+  # Split `NAME` column into `county` and `state`
+  separate_wider_delim(
+    cols = NAME,
+    delim = ',',
+    names = c('county', 'state')) %>% 
+  
+  # Remove the word 'County' from observations, keeping only county name
+  mutate(county_name = str_remove(county, "County"))
+```
+
+```{r}
+# Join NRI data to ACS data, using county column
+nri_acs <- nri_ca %>% 
+  
+```
+
