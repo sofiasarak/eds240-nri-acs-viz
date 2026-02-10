@@ -9,6 +9,7 @@ The following document contains code to answer the question: *How does climate h
 
 ```{r}
 #| message: false
+#| warning: false
 # Load necessary packages
 library(here)
 library(tidyverse)
@@ -16,6 +17,7 @@ library(janitor)
 ```
 
 Access ACS data:
+
 ```{r}
 #| message: false
 # Access ACS data
@@ -46,21 +48,28 @@ race_ethnicity <- read_csv(here("data", "ACS-1yr-2023-county-race-ethnicity.csv"
 ```
 
 Access NRI data:
+
 ```{r}
 #| warning: false
+#| message: false
 # Load in NRI data
 nri_raw <- read_csv(here("data/National_Risk_Index_Counties_807384124455672111.csv")) %>% 
   clean_names()
 ```
 
 ### Data Wrangling
+
 ```{r}
 # Select only data from California
 nri_ca <- nri_raw %>% 
-  filter(state_name == "California")
+  filter(state_name == "California") %>% 
+  select(county_name,
+         national_risk_index_score_composite,
+         national_risk_index_rating_composite)
 ```
 
 NRI and ACS data have different methods of storing county information, so we have to account for that.
+
 ```{r}
 # Change county column in ACS to match that of NRI
 race_ethnicity_clean <- race_ethnicity %>% 
@@ -72,12 +81,63 @@ race_ethnicity_clean <- race_ethnicity %>%
     names = c('county', 'state')) %>% 
   
   # Remove the word 'County' from observations, keeping only county name
-  mutate(county_name = str_remove(county, "County"))
+  mutate(county_name = str_trim(str_remove(county, "County"))) %>% 
+  
+  # Drop original county column
+  select(!county)
+
+# Confirm that both of our data sets now include the same counties
+length(unique(nri_ca$county_name)) == length(unique(race_ethnicity_clean$county_name))
 ```
 
+After reading the metadata, it becomes clear that not all California counties have 1-year race/ethnicity estimates, because ACS only calculates these for counties and places (i.e., towns or cities) with populations of 65,000 or more ([ACS Website](https://www.census.gov/data/developers/data-sets/acs-1year.html#:~:text=The%20ACS%201%2Dyear%20estimates,populations%20of%2065%2C000%20or%20more.)).
+
+The visualizations will therefore contain data only from the 42 California counties with ACS estimates, **not** all 58.
+
+NRI and ACS use different years? 2020 and 2023, respectively
+
 ```{r}
+# Filer NRI data to only contain the same counties as ACS
+# nri_ca_42 <- nri_ca %>% 
+#   filter(county_name %in% unique(race_ethnicity_clean$county_name))
+
+
 # Join NRI data to ACS data, using county column
 nri_acs <- nri_ca %>% 
+  inner_join(race_ethnicity_clean,
+             by = join_by(county_name))
+```
+
+### Visualization
+
+```{r}
+nri_acs %>% 
+  group_by(label) %>% 
+  summarize(pop = sum(estimate)) %>% 
   
+ggplot(aes(x = pop, y = label)) +
+  geom_col()
+```
+- maybe calculate percent of each group using total pop
+
+Races I need: White, Black or African American, American Indian and Alaska Native, Asian, Native Hawaiian and Other Pacific Islander, Some Other Race, Two or More Races, Hispanic or Latino
+
+```{r}
+library(ggbeeswarm)
+
+ggplot(nri_acs, aes(y = label, x = national_risk_index_score_composite)) +
+  geom_beeswarm()
+```
+```{r}
+nri_acs_group <- nri_acs %>% 
+  group_by(label)
+
+ggplot(nri_acs_group, aes(y = label, x = national_risk_index_score_composite)) +
+  geom_beeswarm()
+```
+```{r}
+# second join attempt
+nri_acs <- race_ethnicity_clean %>% 
+  inner_join(nri_ca, by = join_by(county_name))
 ```
 
