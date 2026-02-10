@@ -108,6 +108,51 @@ nri_acs <- nri_ca %>%
              by = join_by(county_name))
 ```
 
+Calculate % of county population that each racial/ethnic group make up
+```{r}
+draft <- nri_acs %>% 
+  pivot_wider(names_from = label,
+              values_from = estimate) %>% 
+  select(county_name, national_risk_index_score_composite, national_risk_index_rating_composite, 
+         'Estimate!!Total') %>% 
+  rename(estimate_total = 'Estimate!!Total') %>% 
+  group_by(county_name) %>% 
+  mutate(total_pop = estimate_total)
+
+
+# Create a data frame that defines total population of each county
+total_pops <- nri_acs %>% 
+  filter(label == "Estimate!!Total") %>% 
+  pivot_wider(names_from = label,
+               values_from = estimate) %>% 
+  select(-c(moe, concept, national_risk_index_score_composite, national_risk_index_rating_composite)) %>% 
+  rename(total_pop = 'Estimate!!Total')
+
+# Join data frame to original nri_acs
+nri_acs_total_pop <- nri_acs %>% 
+  inner_join(total_pops,
+             by = join_by(county_name))
+
+# Now, we can use the new data frame to calculate the percentages
+# As a check, we should get that where label is Estimate!!Total, our percetage is 100
+nri_acs_total_pop <- nri_acs_total_pop %>% 
+  mutate(perc_pop = (estimate/total_pop * 100)) %>% 
+  
+  # And we can clean up the data frame one more time
+  select(county_name,
+         national_risk_index_score_composite,
+         national_risk_index_rating_composite,
+         estimate,
+         label, concept, 
+         total_pop, perc_pop)
+```
+
+
+```{r}
+
+```
+
+
 ### Visualization
 
 ```{r}
@@ -118,7 +163,6 @@ nri_acs %>%
 ggplot(aes(x = pop, y = label)) +
   geom_col()
 ```
-- maybe calculate percent of each group using total pop
 
 Races I need: White, Black or African American, American Indian and Alaska Native, Asian, Native Hawaiian and Other Pacific Islander, Some Other Race, Two or More Races, Hispanic or Latino
 
@@ -128,16 +172,135 @@ library(ggbeeswarm)
 ggplot(nri_acs, aes(y = label, x = national_risk_index_score_composite)) +
   geom_beeswarm()
 ```
-```{r}
-nri_acs_group <- nri_acs %>% 
-  group_by(label)
 
-ggplot(nri_acs_group, aes(y = label, x = national_risk_index_score_composite)) +
-  geom_beeswarm()
-```
 ```{r}
-# second join attempt
-nri_acs <- race_ethnicity_clean %>% 
-  inner_join(nri_ca, by = join_by(county_name))
+ggplot(data = nri_acs_total_pop, aes(x = perc_pop, y = national_risk_index_score_composite)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE) +
+  facet_wrap(~label, scales = "free")
 ```
+
+### Separating Based on Race and Ethnicity
+
+The preliminary plot above is a bit overwhelming. Not only are the labels illegible, but it is difficult to compare identities like "Not Hispanic or Latino". To rectify this, I split the data frame into ethnicity and race categories, and omit rows with total population as their label, altogether. After this separation, we can rejoin the plots together.
+
+```{r}
+# Filter for only labels that describe race
+nri_acs_race <- nri_acs_total_pop %>% 
+  filter(label %in% c("Estimate!!Total:!!Black or African American alone",
+                      "Estimate!!Total:!!Asian alone",
+                      "Estimate!!Total:!!Some Other Race alone",
+                      "Estimate!!Total:!!White alone",
+                      "Estimate!!Total:!!American Indian and Alaska Native alone",
+                      "Estimate!!Total:!!Native Hawaiian and Other Pacific Islander alone",
+                      "Estimate!!Total:!!Two or More Races:"))
+
+# Filter for only labels that describe ethnicity
+nri_acs_ethnicity <- nri_acs_total_pop %>% 
+  filter(label %in% c("Estimate!!Total:!!Not Hispanic or Latino:",
+                      "Estimate!!Total:!!Hispanic or Latino:"))
+```
+
+```{r}
+# Create clear names from labels
+race_labels <- c(
+  "Estimate!!Total:!!Black or African American alone" = "Black or African American",
+  "Estimate!!Total:!!Asian alone" = "Asian",
+  "Estimate!!Total:!!Some Other Race alone" = "Some Other Race",
+  "Estimate!!Total:!!White alone" = "White",
+  "Estimate!!Total:!!American Indian and Alaska Native alone" = "American Indian and Alaska Native",
+  "Estimate!!Total:!!Two or More Races:" = "Two or More Races",
+  "Estimate!!Total:!!Native Hawaiian and Other Pacific Islander alone" = "Native Hawaiian and Other Pacific Islander"
+)
+
+ethnicity_labels <- c(
+  "Estimate!!Total:!!Not Hispanic or Latino:" = "Not Hispanic or Latino",
+  "Estimate!!Total:!!Hispanic or Latino:" = "Hispanic or Latino"
+)
+```
+
+
+Preliminary plots
+```{r}
+#| fig-asp: 1.5
+race_plot <- ggplot(data = nri_acs_race, aes(x = perc_pop, y = national_risk_index_score_composite)) +
+  geom_point(col = "#2E86AB") +
+  geom_smooth(method = "lm", se = FALSE,
+              col = "#92140C") +
+  facet_wrap(~label, scales = "free",
+             labeller = as_labeller(race_labels),
+             nrow = 4) +
+  labs(title = "Race", 
+       x = "% of Population",
+       y = "County NRI Score") +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(hjust = 0.5, color = "#BFACAA", face = "bold",
+                              size = 20),
+    axis.title = element_text(color = "#BFACAA"),
+    axis.text = element_text(color = "#BFACAA"),
+    strip.background = element_rect(fill = "#2D3047",
+                                    color = "#2D3047"),
+    strip.text = element_text(color = "white"),
+    plot.background = element_rect(fill = "#FFF8F0"),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank()
+  )
+```
+
+```{r}
+#| fig-asp: 1.5
+ethnicity_plot <- ggplot(data = nri_acs_ethnicity, aes(x = perc_pop, y = national_risk_index_score_composite)) +
+  geom_point(col = "#2E86AB") +
+  geom_smooth(method = "lm", se = FALSE,
+              col = "#92140C") +
+  facet_wrap(~label, scales = "free",
+             labeller = as_labeller(ethnicity_labels),
+             nrow = 2) +
+  labs(title = "Ethnicity", 
+       x = "% of Population",
+       y = "County NRI Score") +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(hjust = 0.5, color = "#BFACAA", face = "bold",
+                              size = 20),
+    axis.title = element_text(color = "#BFACAA"),
+    axis.text = element_text(color = "#BFACAA"),
+    strip.background = element_rect(fill = "#2D3047",
+                                    color = "#2D3047"),
+    strip.text = element_text(color = "white"),
+    plot.background = element_rect(fill = "#FFF8F0"),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank()
+  )
+```
+Essentially, counties with more Hispanic or Latino populations show a trend of higher NRI scores.
+
+```{r}
+library(patchwork)
+
+race_plot + ethnicity_plot
+```
+
+### Response Questions
+
+**1. What are your variables of interest and what kinds of data (e.g. numeric, categorical, ordered, etc.) are they (a bullet point list is fine)?**
+
+**2. How did you decide which type of graphic form was best suited for answering the question? What alternative graphic forms could you have used instead? Why did you settle on this particular graphic form?**
+
+**3. Summarize your main finding in no more than two sentences.**
+
+**4. What modifications did you make to this visualization to make it more easily readable?**
+
+**5. Is there anything you wanted to implement, but didn’t know how? If so, please describe.**
+
+to do:
+- fix widths of final plot
+- fix text size in facet labels
+- add overall title and description
+- answer qs
+- overall organize doc
+- alt text, title + subtitle
+- update readme
+
 
