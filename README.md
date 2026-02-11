@@ -18,7 +18,7 @@ Data can be downloaded using the [tidycensus](https://walker-data.com/tidycensus
 
 Data information sourced from the [Homework 2 assignment](https://eds-240-data-viz.github.io/course-materials/assignments/HW2.html) description.
 
-## Repository Structure (subject to change)
+## Repository Structure
 ```
 ├── HW2.qmd
 ├── HW3.qmd
