@@ -1,11 +1,14 @@
 ---
 title: "Homework 3: Visualizing FEMA NRI x ACS Data"
 author: "Sofia Sarak"
-format: html
+date: "February 10, 2026"
+format: pdf
 editor: visual
 ---
 
 The following document contains code to answer the question: *How does climate hazard risk exposure vary across racial / ethnic groups in California?* It uses data from [FEMA's National Risk Index (NRI)](https://www.fema.gov/flood-maps/products-tools/national-risk-index) and the [American Census Survey (ACS)](https://www.census.gov/programs-surveys/acs/about.html).
+
+## Set Up
 
 ```{r}
 #| message: false
@@ -14,6 +17,7 @@ The following document contains code to answer the question: *How does climate h
 library(here)
 library(tidyverse)
 library(janitor)
+library(patchwork)
 ```
 
 Access ACS data:
@@ -57,7 +61,7 @@ nri_raw <- read_csv(here("data/National_Risk_Index_Counties_807384124455672111.c
   clean_names()
 ```
 
-### Data Wrangling
+## Data Wrangling
 
 ```{r}
 # Select only data from California
@@ -92,40 +96,29 @@ length(unique(nri_ca$county_name)) == length(unique(race_ethnicity_clean$county_
 
 After reading the metadata, it becomes clear that not all California counties have 1-year race/ethnicity estimates, because ACS only calculates these for counties and places (i.e., towns or cities) with populations of 65,000 or more ([ACS Website](https://www.census.gov/data/developers/data-sets/acs-1year.html#:~:text=The%20ACS%201%2Dyear%20estimates,populations%20of%2065%2C000%20or%20more.)).
 
-The visualizations will therefore contain data only from the 42 California counties with ACS estimates, **not** all 58.
-
-NRI and ACS use different years? 2020 and 2023, respectively
+The visualizations will therefore contain data only from the 42 California counties with ACS estimates, **not** all 58. When we join the two data frames, the counties that do not have match will be dropped.
 
 ```{r}
-# Filer NRI data to only contain the same counties as ACS
-# nri_ca_42 <- nri_ca %>% 
-#   filter(county_name %in% unique(race_ethnicity_clean$county_name))
-
-
 # Join NRI data to ACS data, using county column
 nri_acs <- nri_ca %>% 
   inner_join(race_ethnicity_clean,
              by = join_by(county_name))
 ```
 
-Calculate % of county population that each racial/ethnic group make up
+Calculate % of county population that each racial/ethnic group make up.
 ```{r}
-draft <- nri_acs %>% 
-  pivot_wider(names_from = label,
-              values_from = estimate) %>% 
-  select(county_name, national_risk_index_score_composite, national_risk_index_rating_composite, 
-         'Estimate!!Total') %>% 
-  rename(estimate_total = 'Estimate!!Total') %>% 
-  group_by(county_name) %>% 
-  mutate(total_pop = estimate_total)
-
-
 # Create a data frame that defines total population of each county
 total_pops <- nri_acs %>% 
+  
+  # Keep only total population rows and turn them into a column
   filter(label == "Estimate!!Total") %>% 
   pivot_wider(names_from = label,
                values_from = estimate) %>% 
+  
+  # Keep only necessary columns
   select(-c(moe, concept, national_risk_index_score_composite, national_risk_index_rating_composite)) %>% 
+  
+  # Rename to something cleaner
   rename(total_pop = 'Estimate!!Total')
 
 # Join data frame to original nri_acs
@@ -147,42 +140,11 @@ nri_acs_total_pop <- nri_acs_total_pop %>%
          total_pop, perc_pop)
 ```
 
-
-```{r}
-
-```
-
-
-### Visualization
-
-```{r}
-nri_acs %>% 
-  group_by(label) %>% 
-  summarize(pop = sum(estimate)) %>% 
-  
-ggplot(aes(x = pop, y = label)) +
-  geom_col()
-```
-
-Races I need: White, Black or African American, American Indian and Alaska Native, Asian, Native Hawaiian and Other Pacific Islander, Some Other Race, Two or More Races, Hispanic or Latino
-
-```{r}
-library(ggbeeswarm)
-
-ggplot(nri_acs, aes(y = label, x = national_risk_index_score_composite)) +
-  geom_beeswarm()
-```
-
-```{r}
-ggplot(data = nri_acs_total_pop, aes(x = perc_pop, y = national_risk_index_score_composite)) +
-  geom_point() +
-  geom_smooth(method = "lm", se = FALSE) +
-  facet_wrap(~label, scales = "free")
-```
+## Visualization
 
 ### Separating Based on Race and Ethnicity
 
-The preliminary plot above is a bit overwhelming. Not only are the labels illegible, but it is difficult to compare identities like "Not Hispanic or Latino". To rectify this, I split the data frame into ethnicity and race categories, and omit rows with total population as their label, altogether. After this separation, we can rejoin the plots together.
+Preliminary plotting showed that faceting by all ethnic/racial groups, with no order or division, is a bit overwhelming. Not only are the labels illegible, but it is difficult to compare identities like "Not Hispanic or Latino" to "Asian". To rectify this, I split the data frame into ethnicity and race categories, and omitted rows with total population as their label, altogether. After this separation, the plots will be rejoined.
 
 ```{r}
 # Filter for only labels that describe race
@@ -208,99 +170,134 @@ race_labels <- c(
   "Estimate!!Total:!!Asian alone" = "Asian",
   "Estimate!!Total:!!Some Other Race alone" = "Some Other Race",
   "Estimate!!Total:!!White alone" = "White",
-  "Estimate!!Total:!!American Indian and Alaska Native alone" = "American Indian and Alaska Native",
+  "Estimate!!Total:!!American Indian and Alaska Native alone" = "American Indian/Alaska Native",
   "Estimate!!Total:!!Two or More Races:" = "Two or More Races",
-  "Estimate!!Total:!!Native Hawaiian and Other Pacific Islander alone" = "Native Hawaiian and Other Pacific Islander"
-)
+  "Estimate!!Total:!!Native Hawaiian and Other Pacific Islander alone" = "Native Hawaiian/Other Pacific Islander")
 
 ethnicity_labels <- c(
   "Estimate!!Total:!!Not Hispanic or Latino:" = "Not Hispanic or Latino",
-  "Estimate!!Total:!!Hispanic or Latino:" = "Hispanic or Latino"
-)
+  "Estimate!!Total:!!Hispanic or Latino:" = "Hispanic or Latino")
 ```
 
+#### Racial Group Plot
 
-Preliminary plots
 ```{r}
-#| fig-asp: 1.5
+# Create scatter plot
 race_plot <- ggplot(data = nri_acs_race, aes(x = perc_pop, y = national_risk_index_score_composite)) +
   geom_point(col = "#2E86AB") +
+  
+  # Add trend line
   geom_smooth(method = "lm", se = FALSE,
               col = "#92140C") +
+  
+  # Facet by racial group
   facet_wrap(~label, scales = "free",
              labeller = as_labeller(race_labels),
              nrow = 4) +
+  
+  # Add labels and theme specifications
   labs(title = "Race", 
-       x = "% of Population",
+       x = "% of County Population",
        y = "County NRI Score") +
   theme_minimal() +
   theme(
     plot.title = element_text(hjust = 0.5, color = "#BFACAA", face = "bold",
-                              size = 20),
-    axis.title = element_text(color = "#BFACAA"),
-    axis.text = element_text(color = "#BFACAA"),
+                              size = 12),
+    axis.title = element_text(color = "#BFACAA", size = 8),
+    axis.text = element_text(color = "#BFACAA", size = 6),
     strip.background = element_rect(fill = "#2D3047",
                                     color = "#2D3047"),
-    strip.text = element_text(color = "white"),
+    strip.text = element_text(color = "white", size = 5),
     plot.background = element_rect(fill = "#FFF8F0"),
     panel.grid.major = element_blank(),
-    panel.grid.minor = element_blank()
-  )
+    panel.grid.minor = element_blank())
 ```
+#### Ethnic Group Plot
 
 ```{r}
-#| fig-asp: 1.5
+# Create scatter plot
 ethnicity_plot <- ggplot(data = nri_acs_ethnicity, aes(x = perc_pop, y = national_risk_index_score_composite)) +
   geom_point(col = "#2E86AB") +
+  
+  # Add trend line
   geom_smooth(method = "lm", se = FALSE,
               col = "#92140C") +
+  
+  # Facet by ethnic group
   facet_wrap(~label, scales = "free",
              labeller = as_labeller(ethnicity_labels),
              nrow = 2) +
+  
+  # Add labels and theme specifications
   labs(title = "Ethnicity", 
-       x = "% of Population",
+       x = "% of County Population",
        y = "County NRI Score") +
   theme_minimal() +
   theme(
     plot.title = element_text(hjust = 0.5, color = "#BFACAA", face = "bold",
-                              size = 20),
-    axis.title = element_text(color = "#BFACAA"),
-    axis.text = element_text(color = "#BFACAA"),
+                              size = 12),
+    axis.title = element_text(color = "#BFACAA", size = 8),
+    axis.text = element_text(color = "#BFACAA", size = 6),
     strip.background = element_rect(fill = "#2D3047",
                                     color = "#2D3047"),
-    strip.text = element_text(color = "white"),
+    strip.text = element_text(color = "white", size = 5),
     plot.background = element_rect(fill = "#FFF8F0"),
     panel.grid.major = element_blank(),
-    panel.grid.minor = element_blank()
-  )
+    panel.grid.minor = element_blank())
 ```
-Essentially, counties with more Hispanic or Latino populations show a trend of higher NRI scores.
 
+#### Combining Plots (Final Visualization)
 ```{r}
-library(patchwork)
+#| fig-asp: 1.2
+#| fig-alt: "Scatter plots, faceted by racial/ethnic group, show the relationship between a group's dominance in the population (represented by percent of population) and National Risk Index. Plots with positive trends include Asian, Black or African American, Native Hawaiian/Other Pacific Islander, and Hispanic or Latino groups, while negative trends can be seen for White and Non-Hispanic or Latino plots. This data comes from Califoria counties."
+#| message: false
 
-race_plot + ethnicity_plot
+# Create empty plot to aid in patchwork spacing 
+empty <- ggplot() + theme_void() + theme(plot.background = element_rect(fill = "#FFF8F0"))
+
+# Use patchwork to assemble plots, adding empty for spacing
+race_plot + (ethnicity_plot / empty) +
+  
+  # Adjust plot widths to match: race plot is 2 columns wide, therefore width = 2
+  plot_layout(widths = c(2, 1),
+              axes = "collect") +
+  
+  # Add labels and theme specifications
+  plot_annotation(title = "California National Risk Index, \nby Racial/Ethnic Groups",
+                  subtitle = "For some groups, the percentage of county population they represent and their \ncounty's natural hazard risk appear to be correlated.",
+                  caption = "Data: FEMA National Risk Index (2023 Release) and ACS 1-year 2023 estimates.",
+                  theme = theme(plot.background = element_rect(fill = "#FFF8F0"),
+                                plot.title = element_text(color = "#BFACAA", 
+                                                          face = "bold", size = 25),
+                                plot.subtitle = element_text(color = "#2D3047", size = 10),
+                                plot.caption = element_text(color = "#2D3047", size = 7)))
+                                
 ```
 
 ### Response Questions
 
 **1. What are your variables of interest and what kinds of data (e.g. numeric, categorical, ordered, etc.) are they (a bullet point list is fine)?**
 
+- Percent of county population that identify as ethnic/racial group (calculated from population estimates); continuous, numerical
+- National Risk Index; continuous, numerical
+- Ethnic/racial groups; categorical
+
 **2. How did you decide which type of graphic form was best suited for answering the question? What alternative graphic forms could you have used instead? Why did you settle on this particular graphic form?**
+
+A scatter plot felt like an appropriate graphic form, since I was dealing with two kinds of numerical, continuous variables. Before settling on the scatter plot, I attempted showing distribution through a beeswarm plot, but since all of the racial/ethnic groups share NRI scores across counties, the plots looked exactly the same for each group. Perhaps some sort of binning or other data manipulation could have made using a distribution-based graphic form more feasible.
+
+I settled on the faceted scatter plot because it allowed for clear comparison between ethnic/racial groups, while still being able to show a linear relationship using the line of best fit function.
 
 **3. Summarize your main finding in no more than two sentences.**
 
+For certain racial/ethnic groups in California (like Asian, Black or African American, Native Hawaiian and Other Pacific Islander, and Hispanic or Latino), a greater proportion of them in the county population correlates with higher county NRI scores. For others (like White, American Indian and Alaskan Native, and Not Hispanic or Latino), the opposite is true.
+
 **4. What modifications did you make to this visualization to make it more easily readable?**
+
+I separated racial/ethnic groups into Race and Ethnicity categories; I think this makes the visualization more readable and comprehensible, since race and Hispanic or Latino identity are not mutually exclusive. I also added lines of best fit to the scatter plot to better represent correlations between percent of population and NRI.
 
 **5. Is there anything you wanted to implement, but didn’t know how? If so, please describe.**
 
-to do:
-- fix widths of final plot
-- fix text size in facet labels
-- add overall title and description
-- answer qs
-- overall organize doc
-- alt text, title + subtitle
-- update readme
+I have a lot of empty space in the bottom right corner. If I had more time for this visualization, I might have tried to put another visual to fill that space, such as a choropleth map of California, or another type of chart that could provide additional information.
 
 
