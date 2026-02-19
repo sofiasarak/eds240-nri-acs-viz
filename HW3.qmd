@@ -177,6 +177,17 @@ race_labels <- c(
 ethnicity_labels <- c(
   "Estimate!!Total:!!Not Hispanic or Latino:" = "Not Hispanic or Latino",
   "Estimate!!Total:!!Hispanic or Latino:" = "Hispanic or Latino")
+
+all_labels <- c(
+  "Estimate!!Total:!!Black or African American alone" = "Black or African American",
+  "Estimate!!Total:!!Asian alone" = "Asian",
+  "Estimate!!Total:!!Some Other Race alone" = "Some Other Race",
+  "Estimate!!Total:!!White alone" = "White",
+  "Estimate!!Total:!!American Indian and Alaska Native alone" = "American Indian/Alaska Native",
+  "Estimate!!Total:!!Two or More Races:" = "Two or More Races",
+  "Estimate!!Total:!!Native Hawaiian and Other Pacific Islander alone" = "Native Hawaiian/Other Pacific Islander",
+  "Estimate!!Total:!!Not Hispanic or Latino:" = "Not Hispanic or Latino",
+  "Estimate!!Total:!!Hispanic or Latino:" = "Hispanic or Latino")
 ```
 
 #### Racial Group Plot
@@ -273,6 +284,104 @@ race_plot + (ethnicity_plot / empty) +
                                 plot.caption = element_text(color = "#2D3047", size = 7)))
                                 
 ```
+
+Separate Plots by Positive and Negative Trends
+```{r}
+# white and non-hispanic or latino 
+positive_trend <- nri_acs_total_pop %>% 
+  filter(label %in% c("Estimate!!Total:!!American Indian and Alaska Native alone",
+                      "Estimate!!Total:!!White alone",
+                      "Estimate!!Total:!!Not Hispanic or Latino:"))
+
+pos_plot <- ggplot(data = positive_trend, aes(x = perc_pop, y = national_risk_index_score_composite)) +
+  geom_point(col = "#2E86AB") +
+  
+  # Add trend line
+  geom_smooth(method = "lm", se = FALSE,
+              col = "#92140C") +
+  
+  # Facet by ethnic group
+  facet_wrap(~label, scales = "free",
+             labeller = as_labeller(all_labels),
+             ncol = 3) +
+  
+  # Add labels and theme specifications
+  labs(title = "Positive Trends", 
+       x = "% of County Population",
+       y = "County NRI Score") +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(color = "#BFACAA", face = "bold",
+                              size = 12),
+    axis.title = element_text(color = "#BFACAA", size = 8),
+    axis.text = element_text(color = "#BFACAA", size = 6),
+    strip.background = element_rect(fill = "#2D3047",
+                                    color = "#2D3047"),
+    strip.text = element_text(color = "white", size = 5),
+    plot.background = element_rect(fill = "#FFF8F0"),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    panel.background = element_rect(fill = "#d9d0d1", color = alpha("white", 0)))
+```
+
+```{r}
+negative_trend <- nri_acs_total_pop %>% 
+  filter(label %in% c("Estimate!!Total:!!Black or African American alone",
+                      "Estimate!!Total:!!Asian alone",
+                      "Estimate!!Total:!!Some Other Race alone",
+                      "Estimate!!Total:!!Native Hawaiian and Other Pacific Islander alone",
+                      "Estimate!!Total:!!Two or More Races:",
+                      "Estimate!!Total:!!Hispanic or Latino:"))
+
+neg_plot <- ggplot(data = negative_trend, aes(x = perc_pop, y = national_risk_index_score_composite)) +
+  geom_point(col = "#2E86AB") +
+  
+  # Add trend line
+  geom_smooth(method = "lm", se = FALSE,
+              col = "#92140C") +
+  
+  # Facet by ethnic group
+  facet_wrap(~label, scales = "free",
+             labeller = as_labeller(all_labels),
+             ncol = 3) +
+  
+  # Add labels and theme specifications
+  labs(title = "Negative Trends", 
+       x = "% of County Population",
+       y = "County NRI Score") +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(color = "#BFACAA", face = "bold",
+                              size = 12),
+    axis.title = element_text(color = "#BFACAA", size = 8),
+    axis.text = element_text(color = "#BFACAA", size = 6),
+    strip.background = element_rect(fill = "#2D3047",
+                                    color = "#2D3047"),
+    strip.text = element_text(color = "white", size = 5),
+    plot.background = element_rect(fill = "#FFF8F0"),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    panel.background = element_rect(fill = "#f7e9da", color = alpha("white", 0)))
+```
+Assemble Plots
+```{r}
+#| fig-asp: 1.2
+pos_plot / neg_plot + 
+   plot_layout(heights = c(1.25, 3),
+              axes = "collect") +
+  
+  # Add labels and theme specifications
+  plot_annotation(title = "California National Risk Index, \nby Racial/Ethnic Groups",
+                  subtitle = "American Indian/Alaska Native, Not Hispanic or Latino, and White groups show a positive\nrelationship between % of population and NRI. Other groups, including Asian, Black, and Hispanic\nor Latino, show negative trends.",
+                  caption = "Data: FEMA National Risk Index (2023 Release) and ACS 1-year 2023 estimates.",
+                  theme = theme(plot.background = element_rect(fill = "#FFF8F0"),
+                                plot.title = element_text(color = "#BFACAA", 
+                                                          face = "bold", size = 25),
+                                plot.subtitle = element_text(color = "#2D3047", size = 8),
+                                plot.caption = element_text(color = "#2D3047", size = 7)))
+```
+
+
 
 ### Response Questions
 
